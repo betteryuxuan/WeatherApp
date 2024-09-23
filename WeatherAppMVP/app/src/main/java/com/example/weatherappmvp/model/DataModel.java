@@ -81,39 +81,38 @@ public class DataModel implements MainContract.IMainModel {
     }
 
     @Override
-    public WeatherBean1 requestDayWeather(String name) {
+    public String requestDayWeather(String name) {
         if (!isNetworkAvailable()) {
             String dayWeather = getWeatherFromDatabase(name, "dayWeather");
-            Gson gson = new Gson();
-            WeatherBean1 weatherBean1 = gson.fromJson(dayWeather, WeatherBean1.class);
-            Log.d("LiteTag", "数据库获取数据：" + weatherBean1.toString());
-            return weatherBean1;
+            if (dayWeather != null) {
+                Log.d("LiteTag", "读取到了" + name + "本地7天天气数据");
+                return dayWeather;
+            } else {
+                if (name.equals("")) {
+                    Log.e("LiteTag", name + "null");
+                }
+                Log.e("LiteTag", "没有找到" + name + "本地7天天气数据");
+                return "";
+            }
         }
 
         String[] cityId = requsetCityId(name);
         String urlDayStr = URL_WEATHER_DAY + "location=" + cityId[0] + "&key=" + API_KEY;
         String dayWeather = doGet(urlDayStr);
 
-        Gson gson = new Gson();
-        WeatherBean1 weatherBean1 = gson.fromJson(dayWeather, WeatherBean1.class);
-
-        saveResponseData(cityId[1], dayWeather, "dayWeather");
-
-        return weatherBean1;
+        return dayWeather;
     }
 
     @Override
-    public WeatherBean2 requestNowWeather(String name) {
+    public String requestNowWeather(String name) {
         if (!isNetworkAvailable()) {
             String nowWeather = getWeatherFromDatabase(name, "nowWeather");
             if (nowWeather != null) {
-                Gson gson = new Gson();
-                WeatherBean2 weatherBean2 = gson.fromJson(nowWeather, WeatherBean2.class);
-                Log.d("LiteTag", "数据库获取数据：" + weatherBean2.toString());
-                return weatherBean2;
+                Log.d("LiteTag", "读取到了" + name + "本地实时天气数据");
+                return nowWeather;
             } else {
-                Log.d("WEATHERTag", "没有找到本地实时天气数据");
-                return null;
+                Log.e("LiteTag", "没有找到" + name + "本地实时天气数据");
+                return "";
             }
         }
 
@@ -121,18 +120,8 @@ public class DataModel implements MainContract.IMainModel {
         String urlNowStr = URL_WEATHER_NOW + "location=" + cityId[0] + "&key=" + API_KEY;
         String nowWeather = doGet(urlNowStr);
 
-        if (nowWeather != null) {
-            Gson gson = new Gson();
-            WeatherBean2 weatherBean2 = gson.fromJson(nowWeather, WeatherBean2.class);
-
-            saveResponseData(cityId[1], nowWeather, "nowWeather");
-
-            Log.d("WEATHERTag", name + " 实时天气数据：" + weatherBean2.toString());
-            return weatherBean2;
-        } else {
-            Log.d("LiteTag", "获取实时天气数据失败");
-            return null;
-        }
+        Log.d("WEATHERTag", name + " 实时天气数据：" + nowWeather);
+        return nowWeather;
     }
 
 
@@ -166,7 +155,6 @@ public class DataModel implements MainContract.IMainModel {
         String response = doGet(url);
         Log.d("CityFragmentTag", "searchCityResponse: " + response);
         return response;
-
     }
 
     public void saveResponseData(String cityName, String responseData, String weatherType) {
@@ -200,7 +188,6 @@ public class DataModel implements MainContract.IMainModel {
     }
 
 
-
     public List<String> readCityList(Context context) {
         SharedPreferences sharedPreferences = context.getSharedPreferences("WeatherAppPrefs", MODE_PRIVATE);
         String cityListJson = sharedPreferences.getString("city_list", null);
@@ -211,7 +198,8 @@ public class DataModel implements MainContract.IMainModel {
         }
 
         Gson gson = new Gson();
-        Type type = new TypeToken<List<String>>() {}.getType();
+        Type type = new TypeToken<List<String>>() {
+        }.getType();
         List<String> cityNameList = gson.fromJson(cityListJson, type);
 
         Set<String> uniqueCityNameSet = new LinkedHashSet<>(cityNameList);
@@ -246,9 +234,13 @@ public class DataModel implements MainContract.IMainModel {
     }
 
 
-    private boolean isNetworkAvailable() {
+    @Override
+    public boolean isNetworkAvailable() {
         ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+        if (!(activeNetworkInfo != null && activeNetworkInfo.isConnected())) {
+            Log.d("LiteTag", "网断了");
+        }
         return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
 }

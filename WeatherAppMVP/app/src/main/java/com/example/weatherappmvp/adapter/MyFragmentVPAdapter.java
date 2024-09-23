@@ -1,26 +1,30 @@
 package com.example.weatherappmvp.adapter;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
-import androidx.fragment.app.FragmentPagerAdapter;
-
+import androidx.fragment.app.FragmentStatePagerAdapter;
 
 import com.example.weatherappmvp.fragment.BottomFragment;
 
 import java.util.List;
 
-public class MyFragmentVPAdapter extends FragmentPagerAdapter {
+public class MyFragmentVPAdapter extends FragmentStatePagerAdapter {
     List<String> cityNameList;
 
     public MyFragmentVPAdapter(@NonNull FragmentManager fm, List<String> cityNameList) {
         super(fm);
         this.cityNameList = cityNameList;
+        Log.d("ViewPagerTag", cityNameList.toString());
     }
 
     @NonNull
     @Override
     public Fragment getItem(int position) {
+        Log.d("AAATag", "1" + cityNameList.get(position));
+
         return BottomFragment.newInstance(cityNameList.get(position));
     }
 
@@ -35,16 +39,9 @@ public class MyFragmentVPAdapter extends FragmentPagerAdapter {
     }
 
     @Override
-    public int getItemPosition(@NonNull Object object) {
-        if (cityNameList.contains(object)) {
-            return cityNameList.indexOf(object);
-        } else {
-            return POSITION_NONE;
-        }
+    public int getItemPosition(Object object) {
+        // notifyDataSetChanged() 页面不刷新问题的方法
+        return POSITION_NONE;
     }
 
-    @Override
-    public long getItemId(int position) {
-        return super.getItemId(position);
-    }
 }

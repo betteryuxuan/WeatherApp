@@ -11,9 +11,9 @@ import java.util.List;
 public interface MainContract {
     interface IMainModel {
         // 网络请求
-        WeatherBean1 requestDayWeather(String name);
+        String  requestDayWeather(String name);
 
-        WeatherBean2 requestNowWeather(String name);
+        String  requestNowWeather(String name);
 
         String[] requsetCityId(String name);
 
@@ -22,7 +22,9 @@ public interface MainContract {
         List<String> readCityList(Context context);
 
         String requestSearchCity(String keywords);
+        void saveResponseData(String cityName, String responseData, String weatherType);
 
+        boolean isNetworkAvailable();
     }
 
     interface IMainView {
@@ -71,5 +73,7 @@ public interface MainContract {
         void showAddCityDialogFragment();
 
         List<String> requestSearchCity(String keyWords);
+
+        boolean isNetworkAvailable();
     }
 }

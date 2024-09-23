@@ -12,15 +12,19 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import com.example.weatherappmvp.databinding.FragmentBottomBinding;
 import com.example.weatherappmvp.MainContract;
+import com.example.weatherappmvp.R;
 import com.example.weatherappmvp.adapter.FutureWeatherAdapter;
 import com.example.weatherappmvp.bean.DayWeatherBean;
 import com.example.weatherappmvp.bean.NowWeatherBean;
 import com.example.weatherappmvp.bean.WeatherBean1;
 import com.example.weatherappmvp.bean.WeatherBean2;
+import com.example.weatherappmvp.databinding.FragmentBottomBinding;
 import com.example.weatherappmvp.model.DataModel;
+import com.google.gson.Gson;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -30,7 +34,6 @@ import java.util.List;
 
 public class BottomFragment extends Fragment {
 
-    private static final String ARG_CITY_NAME = "city_name";
     private String cityName;
     private FragmentBottomBinding binding;
     private FutureWeatherAdapter futureWeatherAdapter;
@@ -40,21 +43,18 @@ public class BottomFragment extends Fragment {
     private Handler mHandler;
     private DayWeatherBean dayWeather;
     private NowWeatherBean nowWeatherBean;
+    private String dayWeatherJson;
+    private String nowWeatherJson;
 
     public static BottomFragment newInstance(String cityName) {
         BottomFragment fragment = new BottomFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_CITY_NAME, cityName);
-        fragment.setArguments(args);
+        fragment.cityName = cityName;
         return fragment;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            cityName = getArguments().getString(ARG_CITY_NAME);
-        }
         mModel = new DataModel(requireContext());
         mHandler = new Handler(Looper.getMainLooper());
     }
@@ -65,19 +65,49 @@ public class BottomFragment extends Fragment {
         binding = FragmentBottomBinding.inflate(inflater, container, false);
         View view = binding.getRoot();
 
+        SwipeRefreshLayout swipeRefreshLayout = view.findViewById(R.id.swipe_refresh_layout);
+
         // 初始化 RecyclerView 和 Adapter
         futureWeatherAdapter = new FutureWeatherAdapter(getContext(), new ArrayList<>());
         binding.rvFutureWeather.setAdapter(futureWeatherAdapter);
         LinearLayoutManager layoutManager = new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false);
         binding.rvFutureWeather.setLayoutManager(layoutManager);
 
+        // 滑动冲突
+        binding.rvFutureWeather.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                if (swipeRefreshLayout != null && recyclerView != null && recyclerView.getChildCount() > 0) {
+                    View firstChild = recyclerView.getChildAt(0);
+                    int firstChildPosition = (firstChild == null) ? 0 : firstChild.getTop();
+                    swipeRefreshLayout.setEnabled(firstChildPosition >= 0);
+                }
+            }
+        });
+
         new Thread(new Runnable() {
             @Override
             public void run() {
                 // 在后台线程中执行网络请求
-                Log.d("FragmentTag", "StartRequest");
-                weatherBean1 = mModel.requestDayWeather(cityName);
-                weatherBean2 = mModel.requestNowWeather(cityName);
+                Log.d("AAATag", "2" + cityName);
+                String locationId = "";
+                String cityNameResult = "";
+                if (mModel.isNetworkAvailable()) {
+                    String[] data = mModel.requsetCityId(cityName);
+                    locationId = data[0];
+                    cityNameResult = data[1];
+                    dayWeatherJson = mModel.requestDayWeather(locationId);
+                    nowWeatherJson = mModel.requestNowWeather(locationId);
+//                    mModel.saveResponseData(cityName, dayWeatherJson, "dayWeather");
+//                    mModel.saveResponseData(cityName, nowWeatherJson, "nowWeather");
+                } else {
+                    dayWeatherJson = mModel.requestDayWeather(cityName);
+                    nowWeatherJson = mModel.requestNowWeather(cityName);
+                }
+
+                Gson gson = new Gson();
+                weatherBean1 = gson.fromJson(dayWeatherJson, WeatherBean1.class);
+                weatherBean2 = gson.fromJson(nowWeatherJson, WeatherBean2.class);
                 Log.d("FragmentTag", weatherBean1.toString() + weatherBean2.toString());
                 mHandler.post(new Runnable() {
                     @Override

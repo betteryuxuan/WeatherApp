@@ -4,13 +4,10 @@ import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.icu.text.SimpleDateFormat;
 import android.os.Bundle;
-import android.os.Handler;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -20,7 +17,6 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.GravityCompat;
 import androidx.core.view.ViewCompat;
@@ -79,7 +75,7 @@ public class MainActivity extends AppCompatActivity implements MainContract.IMai
                     Date date = new Date(aMapLocation.getTime());
                     String formatDate = df.format(date);
 
-                    Log.d("LocationTag", "定位成功：" + aMapLocation.getLatitude() + "," + aMapLocation.getLongitude() + "," + aMapLocation.getCity() + "," + aMapLocation.getDistrict());
+                    Log.d("LocationTag", "定位成功：" + aMapLocation.getLatitude() + "," + aMapLocation.getLongitude() + "," + aMapLocation.getDistrict());
 
 
                     String[] splitLatitude = String.valueOf(aMapLocation.getLatitude()).split("\\.");
@@ -91,15 +87,15 @@ public class MainActivity extends AppCompatActivity implements MainContract.IMai
 
                     mPresenter.handleData(currentLatitudeAndLongitude);
                     binding.viewPager.setCurrentItem(0);
+
+                    Log.d("MainActivityTag", "1" + cityNameList.toString());
                 } else {
                     //定位失败时，可通过ErrCode（错误码）信息来确定失败的原因，errInfo是错误信息，详见错误码表。
                     Log.e("LocationTag", "location Error, ErrCode:"
                             + aMapLocation.getErrorCode() + ", errInfo:"
                             + aMapLocation.getErrorInfo());
-
                 }
             }
-
         }
     };
 
@@ -139,16 +135,23 @@ public class MainActivity extends AppCompatActivity implements MainContract.IMai
             cityNameList.add("北京");
         }
 
-        initLocation();
-        Log.d("MainActivityTag", cityNameList.toString());
+        if (mPresenter.isNetworkAvailable()) {
+            initLocation();
+        } else {
+            Toast.makeText(MainActivity.this, "网络未连接", Toast.LENGTH_SHORT).show();
+            mPresenter.handleData("108.90,34.15");
+            binding.viewPager.setCurrentItem(0);
+        }
+
+        // 定位是异步，这里没把定位到的城市添加到cityNameList里
         // 用读取的菜单初始化
         mPresenter.initMenu(cityNameList);
 
-        // 进入自动展示定位城市
-//        mPresenter.handleData(currentLatitudeAndLongitude);
+        Log.d("MainActivityTag", "2" + cityNameList.toString());
         mPresenter.viewPagerInit(cityNameList, this);
         mPresenter.updateMenuSelection(0);
 
+        // 添加城市按钮
         binding.imgAdd.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -161,15 +164,10 @@ public class MainActivity extends AppCompatActivity implements MainContract.IMai
             @Override
             public void onPageSelected(int position) {
                 Log.d("MyTag", position + "---" + cityNameList.size());
-
-//                View firstIndicator = binding.indicator.getChildAt(0);
-//                firstIndicator.setBackgroundResource(R.drawable.loction);
-
+                Log.d("ViewPagerTag", "1" + cityNameList.toString());
                 mPresenter.onPageSelected(position);
                 mPresenter.updateMenuSelection(position);
 
-//                updateMenuSelection(cityName);
-//                Toast.makeText(MainActivity.this, "切换到了:" + cityName, Toast.LENGTH_SHORT).show();
             }
 
             @Override
@@ -200,16 +198,9 @@ public class MainActivity extends AppCompatActivity implements MainContract.IMai
         binding.swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
-                // 模拟数据加载
-                new Handler().postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(MainActivity.this, "已刷新", Toast.LENGTH_SHORT).show();
-                        mPresenter.handleData(binding.edit.toString());
-                        binding.swipeRefreshLayout.setRefreshing(false);
-                    }
-                }, 2000);
-
+                Toast.makeText(MainActivity.this, "已刷新", Toast.LENGTH_SHORT).show();
+//                mPresenter.handleData(binding.edit.toString());
+                binding.swipeRefreshLayout.setRefreshing(false);
             }
         });
     }
@@ -221,7 +212,19 @@ public class MainActivity extends AppCompatActivity implements MainContract.IMai
             mLocationClient.stopLocation();
             mLocationClient.onDestroy();
         }
+        Log.d("ListTag", "onStop" + cityNameList.toString());
         mPresenter.saveCityList(cityNameList, this);
+    }
+
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        if (mPresenter.isNetworkAvailable()) {
+            initLocation();
+        } else {
+            mPresenter.handleData("108.90,34.15");
+        }
+        Log.d("ListTag", "onRestart" + cityNameList.toString());
     }
 
     @Override
@@ -251,6 +254,7 @@ public class MainActivity extends AppCompatActivity implements MainContract.IMai
 
         // 设置高精度模式
         mLocationOption.setLocationMode(AMapLocationClientOption.AMapLocationMode.Hight_Accuracy);
+
         if (null != mLocationClient) {
             mLocationClient.setLocationOption(mLocationOption);
             //设置场景模式后最好调用一次stop，再调用start以保证场景模式生效
@@ -322,7 +326,7 @@ public class MainActivity extends AppCompatActivity implements MainContract.IMai
                     }
                 } else if (data.contains("雨")) {
                     if (randomNum == 0) {
-                        binding.main.setBackgroundResource(R.drawable.rainback_ground_1);
+                        binding.main.setBackgroundResource(R.drawable.rain_background_1);
                     } else {
                         binding.main.setBackgroundResource(R.drawable.rain_background_2);
                     }
@@ -458,8 +462,9 @@ public class MainActivity extends AppCompatActivity implements MainContract.IMai
 
         AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
         builder.setTitle("确定删除" + cityName + "吗");
-
         builder.setCancelable(false);
+        builder.setIcon(R.drawable.icon);
+
 
         builder.setPositiveButton("确定", (dialog, which) -> {
             deleteCityMenu(cityName);
@@ -490,7 +495,7 @@ public class MainActivity extends AppCompatActivity implements MainContract.IMai
         menu.add(Menu.NONE, R.id.nav_add_city, Menu.NONE, "添加更多城市");
 
         // 更新 ViewPager 和 Indicator
-        refreshViewPager();
+        mPresenter.refreshViewPager();
 
         //重新设置长按点击事件，否则名字不匹配
         setNavigationItemLongListener();
@@ -531,11 +536,16 @@ public class MainActivity extends AppCompatActivity implements MainContract.IMai
         if (cityName.contains("当前定位城市:")) {
             String loctionName = cityName.split(":")[1];
             binding.edit.setText(loctionName);
+            if (loctionName.equals("108.90,34.15")) {
+                binding.edit.setText("长安");
+            }
             if (!cityNameList.contains(loctionName)) {
+
                 cityNameList.add(0, loctionName);
                 mPresenter.refreshViewPager();
-                Log.d("LocationTag2", loctionName);
+                Log.d("LocationTag2", cityNameList.toString());
             }
+
             return;
         } else {
             binding.edit.setText(cityName);
@@ -553,15 +563,13 @@ public class MainActivity extends AppCompatActivity implements MainContract.IMai
     }
 
     public void refreshViewPager() {
-
-        // 重新设置适配器
-        fragmentVPAdapter.updateCityList(cityNameList);
-        fragmentVPAdapter.notifyDataSetChanged();  // 通知 adapter 数据已改变
+        Log.d("MainActivityTag", "3ViewPager" + cityNameList.toString());
+        if (fragmentVPAdapter != null) {
+            fragmentVPAdapter = null;
+        }
+        fragmentVPAdapter = new MyFragmentVPAdapter(getSupportFragmentManager(), cityNameList);
         binding.viewPager.setAdapter(fragmentVPAdapter);
-
-        // 重新绑定 Indicator
         binding.indicator.setViewPager(binding.viewPager);
-
     }
 
     public String getLatitudeAndLongitude() {
